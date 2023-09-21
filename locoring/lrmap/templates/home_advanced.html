@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Folium Map with User Input</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #container {
+      display: flex;
+      height: 100%;
+    }
+
+    #form-container {
+      flex: 1;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      max-width: 400px; /* Adjust the max-width to your preference */
+      margin: 0 auto; /* Center the form container */
+    }
+
+    #form-container h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    #locationForm {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #locationForm input {
+      margin: 5px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    #locationForm button {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    #locationForm button:hover {
+      background-color: #0056b3;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <div id="form-container">
+    <h1>Enter Addresses and Notify</h1>
+    <form id="locationForm" method="get" action="#">
+      <label for="currentAddress">Current Address:</label>
+      <input type="text" id="currentAddress" name="currentAddress" placeholder="Enter current address" required><br>
+
+      <label for="destinationAddress">Destination Address:</label>
+      <input type="text" id="destinationAddress" name="destinationAddress" placeholder="Enter destination address" required><br>
+
+      <label for="notifyAddress">Notify Address:</label>
+      <input type="text" id="notifyAddress" name="notifyAddress" placeholder="Enter notify address"><br>
+
+      <button type="button" onclick="useCurrentLocation()">Use Current Location</button>
+      <button type="button" onclick="showMap()">Show Route</button>
+    </form>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<script>
+  let map = null;
+  let routingControl = null;
+  let notifyLocation = null;
+  let notifyRadius = 100; // Radius in meters
+
+  async function getCoordinates(address) {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+    const data = await response.json();
+    if (data.length > 0) {
+      return {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon)
+      };
+    } else {
+      throw new Error('Address not found');
+    }
+  }
+
+  async function useCurrentLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async position => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await response.json();
+          if (data.display_name) {
+            document.getElementById('currentAddress').value = data.display_name;
+          }
+        },
+        error => {
+          alert('Error getting current location: ' + error.message);
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by this browser.');
+    }
+  }
+
+  async function showMap() {
+    const currentAddress = document.getElementById('currentAddress').value;
+    const destinationAddress = document.getElementById('destinationAddress').value;
+    const notifyAddress = document.getElementById('notifyAddress').value;
+
+    try {
+      const currentLocation = await getCoordinates(currentAddress);
+      const destinationLocation = await getCoordinates(destinationAddress);
+
+      if (notifyAddress) {
+        notifyLocation = await getCoordinates(notifyAddress);
+      }
+
+      if (map) {
+        map.off();
+        map.remove();
+      }
+
+      map = L.map('map').setView([currentLocation.latitude, currentLocation.longitude], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      routingControl = L.Routing.control({
+        waypoints: [
+          L.latLng(currentLocation.latitude, currentLocation.longitude),
+          L.latLng(destinationLocation.latitude, destinationLocation.longitude)
+        ],
+        routeWhileDragging: true
+      }).addTo(map);
+
+      if (notifyLocation) {
+        // Watch the user's location and update the map as the user moves
+        navigator.geolocation.watchPosition(
+          position => {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+
+            // Update the map view and route with the user's location
+            updateMapView(latitude, longitude);
+            updateRoute(latitude, longitude);
+
+            // Check if the user has reached the notify location
+            const distance = calculateDistance(latitude, longitude, notifyLocation.latitude, notifyLocation.longitude);
+            if (distance <= notifyRadius) {
+              showNotification(`You have reached ${notifyAddress}`);
+            }
+          },
+          error => {
+            alert('Error getting current location: ' + error.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  }
+
+  function updateMapView(lat, lng) {
+    if (map) {
+      map.setView([lat, lng], 13);
+    }
+  }
+
+  function updateRoute(lat, lng) {
+    if (routingControl) {
+      routingControl.spliceWaypoints(0, 1, L.latLng(lat, lng));
+      routingControl.route();
+    }
+  }
+
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Radius of the Earth in meters
+    const phi1 = lat1 * (Math.PI / 180);
+    const phi2 = lat2 * (Math.PI / 180);
+    const deltaPhi = (lat2 - lat1) * (Math.PI / 180);
+    const deltaLambda = (lon2 - lon1) * (Math.PI / 180);
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const distance = R * c;
+    return distance;
+  }
+
+  function showNotification(message) {
+    if (Notification.permission === 'granted') {
+      new Notification(message);
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          new Notification(message);
+        }
+      });
+    }
+  }
+</script>
+</body>
+</html>

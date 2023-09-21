@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Folium Map with User Input</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #container {
+      display: flex;
+      height: 100%;
+    }
+
+    #form-container {
+      flex: 1;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+
+    #map-container {
+      flex: 2;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    #locationForm {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #locationForm input {
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <div id="form-container">
+    <h1>Enter Current and Destination Locations</h1>
+    <form id="locationForm" method="get" action="#">
+      <h2>Current Location:</h2>
+      Latitude: <input type="text" id="currentLatitude" name="currentLatitude" required><br>
+      Longitude: <input type="text" id="currentLongitude" name="currentLongitude" required><br>
+
+      <h2>Destination Location:</h2>
+      Latitude: <input type="text" id="destinationLatitude" name="destinationLatitude" required><br>
+      Longitude: <input type="text" id="destinationLongitude" name="destinationLongitude" required><br>
+      
+      <button type="submit">Show Route</button>
+    </form>
+  </div>
+
+  <div id="map-container">
+    <div id="map"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  // Initialize the map
+  var map = L.map('map').setView([0, 0], 2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  // Submit form using AJAX
+  $('#locationForm').submit(function(e) {
+    e.preventDefault();
+    
+    var currentLatitude = parseFloat($('#currentLatitude').val());
+    var currentLongitude = parseFloat($('#currentLongitude').val());
+    var destinationLatitude = parseFloat($('#destinationLatitude').val());
+    var destinationLongitude = parseFloat($('#destinationLongitude').val());
+
+    L.DomUtil.empty('map'); // Clear previous markers and routes
+
+    L.marker([currentLatitude, currentLongitude]).addTo(map)
+      .bindPopup('Current location').openPopup();
+
+    L.marker([destinationLatitude, destinationLongitude]).addTo(map)
+      .bindPopup('Destination location').openPopup();
+
+    L.Routing.control({
+      waypoints: [
+        L.latLng(currentLatitude, currentLongitude),
+        L.latLng(destinationLatitude, destinationLongitude)
+      ],
+      routeWhileDragging: true
+    }).addTo(map);
+  });
+</script>
+
+</body>
+</html>

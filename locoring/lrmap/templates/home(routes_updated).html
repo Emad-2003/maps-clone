@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Folium Map with User Input</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #container {
+      display: flex;
+      height: 100%;
+    }
+
+    #form-container {
+      flex: 1;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      width:100px;
+    }
+
+    #form-container h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    #locationForm {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #locationForm input {
+      margin: 5px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    #locationForm button {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    #locationForm button:hover {
+      background-color: #0056b3;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <div id="form-container">
+    <h1>Enter Current and Destination Locations</h1>
+    <form id="locationForm" method="get" action="#">
+      <label for="currentLatitude">Current Latitude:</label>
+      <input type="text" id="currentLatitude" name="currentLatitude" required><br>
+
+      <label for="currentLongitude">Current Longitude:</label>
+      <input type="text" id="currentLongitude" name="currentLongitude" required><br>
+
+      <label for="destinationLatitude">Destination Latitude:</label>
+      <input type="text" id="destinationLatitude" name="destinationLatitude" required><br>
+
+      <label for="destinationLongitude">Destination Longitude:</label>
+      <input type="text" id="destinationLongitude" name="destinationLongitude" required><br>
+
+      <button type="button" onclick="showMap()">Show Route</button>
+    </form>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<script>
+  function showMap() {
+    const currentLatitude = parseFloat(document.getElementById('currentLatitude').value);
+    const currentLongitude = parseFloat(document.getElementById('currentLongitude').value);
+    const destinationLatitude = parseFloat(document.getElementById('destinationLatitude').value);
+    const destinationLongitude = parseFloat(document.getElementById('destinationLongitude').value);
+
+    const map = L.map('map').setView([currentLatitude, currentLongitude], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    L.Routing.control({
+      waypoints: [
+        L.latLng(currentLatitude, currentLongitude),
+        L.latLng(destinationLatitude, destinationLongitude)
+      ],
+      routeWhileDragging: true
+    }).addTo(map);
+  }
+</script>
+</body>
+</html>
